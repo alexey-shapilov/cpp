@@ -10,8 +10,8 @@ int main() {
 
   int matrix[m][n];
 
-  int counter{1}; // текущее значение элемента
-  int max_counter{m*n}; // максимальное значение элемента
+  int counter{1};         // текущее значение элемента
+  int max_counter{m * n}; // максимальное значение элемента
 
   for (int i{0}; i < m; i++) {
     // Проходим горизонтально вправо сверху
@@ -47,6 +47,6 @@ int main() {
     }
     std::cout << std::endl;
   }
- 
+
   return 0;
 }
