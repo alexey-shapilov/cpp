@@ -1,18 +1,14 @@
 #include <iostream>
 
 int main() {
-  int m{5}, n{7};
+  int m{}, n{};
   std::cout << "Input number of rows: ";
   std::cin >> m;
   std::cout << "Input number of columns: ";
   std::cin >> n;
   std::cout << std::endl;
 
-  int **matrix{new int *[m]};
-
-  for (int i = 0; i < m; i++) {
-    matrix[i] = new int[n];
-  }
+  int matrix[m][n];
 
   int counter{1}; // текущее значение элемента
   int max_counter{m*n}; // максимальное значение элемента
@@ -49,10 +45,8 @@ int main() {
     for (int j{0}; j < n; j++) {
       std::cout << matrix[i][j] << "\t";
     }
-    delete[] matrix[i]; // освобождаем память выделенную для каждого столбца матрицы
     std::cout << std::endl;
   }
-  delete[] matrix; // освобождаем память выделенную для строк матрицы
  
   return 0;
 }
