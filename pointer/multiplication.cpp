@@ -1,10 +1,24 @@
 #include <cstdlib>
 #include <iostream>
+#include <ostream>
 #define RANDOM_MIN 1
 #define RANDOM_MAX 10
 
 int main() {
-  int l{3}, m{4}, n{5};
+  int l, m, n;
+
+  std::cout << "Input dimension (rows x columns) for matrix A:" << std::endl
+            << "rows: ";
+  std::cin >> l;
+  std::cout << "columns: ";
+  std::cin >> m;
+
+  std::cout << std::endl
+            << "Input dimension (rows x columns) for matrix B:" << std::endl
+            << "rows: " << m << std::endl
+            << "columns: ";
+  std::cin >> n;
+
   int **matrix_a = new int *[l];              // l x m
   int **matrix_b = new int *[m];              // m x n
   int **matrix_multiplication = new int *[l]; // l x n
