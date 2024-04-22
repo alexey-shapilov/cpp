@@ -4,7 +4,7 @@
 #define ODD true
 #define EVEN false
 
-const int kArraySize = 8;
+const int kArraySize = 9;
 const int kMinRandom = 1;
 const int kMaxRandom = 500;
 
@@ -15,7 +15,7 @@ bool PairedComparisionAsc(int *arr, bool odd, int array_size) {
   int i{odd ? 1 : 0};
   arr += i;
   for (; i < array_size; i += 2) {
-    if (*arr > *(arr + 1)) {
+    if (i + 1 < array_size && *arr > *(arr + 1)) {
       temp = *arr;
       *arr = *(arr + 1);
       *(arr + 1) = temp;
