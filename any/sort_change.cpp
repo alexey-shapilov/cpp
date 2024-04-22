@@ -21,7 +21,9 @@ bool PairedComparisionAsc(int *arr, bool odd, int array_size) {
       *(arr + 1) = temp;
       exchanged = true;
     }
-    arr += 2;
+    if (i + 2 < array_size) {
+      arr += 2;
+    }
   }
 
   return exchanged;
