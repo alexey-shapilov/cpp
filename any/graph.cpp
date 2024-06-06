@@ -1,7 +1,12 @@
+#include <chrono>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <ios>
 #include <iostream>
-#include <ostream>
+#include <map>
+#include <set>
 using namespace std;
 
 struct Vertex;
@@ -89,6 +94,103 @@ void PrintVertex(Vertex *vertex) {
   cout << connect->vertex->id << ')' << endl;
 }
 
+struct VertexHeader {
+  int id;
+  int countConnections;
+};
+
+set<int> t;
+
+void Traversal(Vertex *vertex, ofstream &fout) {
+  VertexHeader h{vertex->id, vertex->connections.count};
+  t.insert(vertex->id);
+
+  int *connections = new int[h.countConnections];
+  int *connection = connections;
+
+  if (vertex->connections.count > 0) {
+    Node *p = vertex->connections.elements;
+    while (p != NULL) {
+      int vertexId = p->vertex->id;
+      *connection++ = vertexId;
+      if (t.count(vertexId) == 0) {
+        Traversal(p->vertex, fout);
+      }
+      p = p->next;
+    }
+  }
+
+  fout.write((char *)&h, sizeof(VertexHeader));
+  if (h.countConnections > 0) {
+    fout.write((char *)connections, sizeof(*connections) * h.countConnections);
+  }
+
+  // cout << h.id;
+  // if (h.countConnections > 0) {
+  //   cout << '(';
+  //   connection = connections;
+  //   for (int i{0}; i < h.countConnections; i++) {
+  //     cout << *connection++ << ',';
+  //   }
+  //   cout << ')' << endl;
+  // }
+
+  delete[] connections;
+}
+
+Vertex *ReadGraph(ifstream &fin) {
+  map<int, Vertex *> vertices;
+  Vertex *vertex;
+  Vertex *child;
+  VertexHeader h;
+
+  while (fin) {
+    fin.read((char *)&h, sizeof(VertexHeader));
+
+    if (vertices.count(h.id) > 0) {
+      vertex = vertices.at(h.id);
+    } else {
+      vertex = CreateVertex(h.id);
+      vertices.insert({h.id, vertex});
+    }
+
+    if (h.countConnections > 0) {
+      int *connections = new int[h.countConnections];
+      fin.read((char *)connections, sizeof(*connections) * h.countConnections);
+
+      int *connection = connections;
+      for (int i{0}; i < h.countConnections; i++) {
+        if (vertices.count(*connection) > 0) {
+          child = vertices.at(*connection);
+        } else {
+          child = CreateVertex(*connection);
+          vertices.insert({*connection++, vertex});
+        }
+        Link(vertex, child);
+      }
+
+      delete[] connections;
+    }
+  }
+  return vertex;
+}
+
+void PrintGraph(Vertex *vertex) {
+  PrintVertex(vertex);
+  t.insert(vertex->id);
+
+  if (vertex->connections.count > 0) {
+    Node *p = vertex->connections.elements;
+    while (p != NULL) {
+      int vertexId = p->vertex->id;
+      if (t.count(vertexId) == 0) {
+        PrintGraph(p->vertex);
+      }
+      p = p->next;
+    }
+  }
+}
+
 int main(int argc, char *argv[]) {
   Vertex *vertex1 = CreateVertex(1);
   Vertex *vertex2 = CreateVertex(2);
@@ -125,11 +227,23 @@ int main(int argc, char *argv[]) {
   Link(vertex9, vertex10);
   Link(vertex9, vertex1);
 
-  PrintVertex(vertex4);
-  PrintVertex(vertex10);
-  PrintVertex(vertex8);
-  PrintVertex(vertex9);
-  PrintVertex(vertex1);
+  // PrintVertex(vertex4);
+  // PrintVertex(vertex10);
+  // PrintVertex(vertex8);
+  // PrintVertex(vertex9);
+  // PrintVertex(vertex1);
+
+  ofstream fout("graph.bin", ios::out | ios::binary | ios::trunc);
+  if (fout.is_open()) {
+    Traversal(vertex10, fout);
+    fout.close();
+  }
+
+  ifstream fin("graph.bin", ios::in | ios::binary);
+  if (fin.is_open()) {
+    PrintGraph(ReadGraph(fin));
+    fin.close();
+  }
 
   return 0;
 }
