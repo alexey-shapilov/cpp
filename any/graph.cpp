@@ -1,5 +1,3 @@
-#include <chrono>
-#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -25,6 +23,11 @@ struct Connections {
 struct Vertex {
   int id;
   struct Connections connections;
+};
+
+struct VertexHeader {
+  int id;
+  int countConnections;
 };
 
 Node *CreateNode(Vertex *vertex) {
@@ -94,14 +97,10 @@ void PrintVertex(Vertex *vertex) {
   cout << connect->vertex->id << ')' << endl;
 }
 
-struct VertexHeader {
-  int id;
-  int countConnections;
-};
-
+// множество для сохранения уже обработанных вершин
 set<int> t;
 
-void Traversal(Vertex *vertex, ofstream &fout) {
+void WriteGraph(Vertex *vertex, ofstream &fout) {
   VertexHeader h{vertex->id, vertex->connections.count};
   t.insert(vertex->id);
 
@@ -114,7 +113,7 @@ void Traversal(Vertex *vertex, ofstream &fout) {
       int vertexId = p->vertex->id;
       *connection++ = vertexId;
       if (t.count(vertexId) == 0) {
-        Traversal(p->vertex, fout);
+        WriteGraph(p->vertex, fout);
       }
       p = p->next;
     }
@@ -124,16 +123,6 @@ void Traversal(Vertex *vertex, ofstream &fout) {
   if (h.countConnections > 0) {
     fout.write((char *)connections, sizeof(*connections) * h.countConnections);
   }
-
-  // cout << h.id;
-  // if (h.countConnections > 0) {
-  //   cout << '(';
-  //   connection = connections;
-  //   for (int i{0}; i < h.countConnections; i++) {
-  //     cout << *connection++ << ',';
-  //   }
-  //   cout << ')' << endl;
-  // }
 
   delete[] connections;
 }
@@ -146,6 +135,9 @@ Vertex *ReadGraph(ifstream &fin) {
 
   while (fin) {
     fin.read((char *)&h, sizeof(VertexHeader));
+    if (fin.fail()) {
+      break;
+    }
 
     if (vertices.count(h.id) > 0) {
       vertex = vertices.at(h.id);
@@ -164,7 +156,7 @@ Vertex *ReadGraph(ifstream &fin) {
           child = vertices.at(*connection);
         } else {
           child = CreateVertex(*connection);
-          vertices.insert({*connection++, vertex});
+          vertices.insert({*connection++, child});
         }
         Link(vertex, child);
       }
@@ -227,22 +219,18 @@ int main(int argc, char *argv[]) {
   Link(vertex9, vertex10);
   Link(vertex9, vertex1);
 
-  // PrintVertex(vertex4);
-  // PrintVertex(vertex10);
-  // PrintVertex(vertex8);
-  // PrintVertex(vertex9);
-  // PrintVertex(vertex1);
-
   ofstream fout("graph.bin", ios::out | ios::binary | ios::trunc);
   if (fout.is_open()) {
-    Traversal(vertex10, fout);
+    WriteGraph(vertex10, fout);
     fout.close();
+    t.clear();
   }
 
   ifstream fin("graph.bin", ios::in | ios::binary);
   if (fin.is_open()) {
     PrintGraph(ReadGraph(fin));
     fin.close();
+    t.clear();
   }
 
   return 0;
