@@ -43,10 +43,10 @@ double coeff_integrand(double x, void *params) {
 }
 
 // Функции для вычисления интегралов
-double f0(double x) { return pow(x, 0); } // Константа
-double f1(double x) { return x; }         // Линейная
-double f2(double x) { return pow(x, 2); } // Квадратичная
-double f3(double x) { return pow(x, 2) + pow(x, 3); } // Кубическая
+double f0(double x) { return 1.0; }           // Константа
+double f1(double x) { return x; }             // Линейная
+double f2(double x) { return x + pow(x, 2); } // Квадратичная
+double f3(double x) { return x + pow(x, 2) + pow(x, 3); } // Кубическая
 double f5(double x) { return sin(x); } // Неполиномиальная
 
 function<double(double)> generate_polynomial(int n) {
