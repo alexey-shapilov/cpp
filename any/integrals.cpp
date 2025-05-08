@@ -2,10 +2,14 @@
 #include <functional>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_linalg.h>
+#include <gsl/gsl_math.h>
 #include <iostream>
+#include <ostream>
 #include <vector>
 
-// Весовая функция w(x) = e^x
+using namespace std;
+
+// Весовая функция w(x)
 double weight_function(double x) { return exp(x); }
 
 // Подынтегральная функция для вычисления моментов: x^k * w(x)
@@ -14,40 +18,43 @@ double moment_integrand(double x, void *params) {
   return pow(x, k) * weight_function(x);
 }
 
-// Функции для вычисления интегралов
-double f0(double x) { return 1.0; }       // Константа
-double f1(double x) { return x; }         // Линейная
-double f2(double x) { return x * x; }     // Квадратичная
-double f3(double x) { return x * x * x; } // Кубическая
-double f5(double x) { return sin(x); }    // Неполиномиальная
+double lkn(const vector<double> &nodes, int k, double x) {
+  int n = nodes.size();
+  double result = 1;
+  for (int i = 0; i < n; i++) {
+    if (i != k) {
+      result *= (x - nodes[i]) / (nodes[k] - nodes[i]);
+    }
+  }
 
-// Точное значение интеграла для f5(x) = sin(x) на [0, 1] с весом e^x
-double exact_f5() {
-  const double e = exp(1.0);
-  return 0.5 * (e * (sin(1.0) - cos(1.0))) + 0.5;
+  return result;
 }
 
-int main() {
-  // Ввод параметров
-  int N;
-  double a, b;
-  std::cout << "Введите концы промежутка интегрирования (a, b) через пробел: ";
-  std::cin >> a >> b;
-  std::cout << "Введите количество узлов N: ";
-  std::cin >> N;
+struct lkn_params {
+  vector<double> nodes;
+  int k;
+};
+double coeff_integrand(double x, void *params) {
+  struct lkn_params *p = (struct lkn_params *)params;
+  vector<double> nodes = (p->nodes);
+  int k = (p->k);
 
-  // Генерация равномерных узлов
-  std::vector<double> nodes(N);
-  for (int i = 0; i < N; ++i) {
-    nodes[i] = a + i * (b - a) / (N - 1);
-  }
+  return weight_function(x) * lkn(nodes, k, x);
+}
 
+// Функции для вычисления интегралов
+double f0(double x) { return pow(x, 0); } // Константа
+double f1(double x) { return x; }         // Линейная
+double f2(double x) { return pow(x, 2); } // Квадратичная
+double f3(double x) { return pow(x, 2) + pow(x, 3); } // Кубическая
+double f5(double x) { return sin(x); } // Неполиномиальная
+
+function<double(double)> generate_polynomial(int n) {
   // Генерация коэффициентов для многочлена степени N-1 (1 + 2x + 3x² + ...)
-  std::vector<double> coefficients(N);
-  for (int i = 0; i < N; ++i) {
+  vector<double> coefficients(n);
+  for (int i = 0; i < n; ++i) {
     coefficients[i] = i + 1; // Пример: коэффициенты 1, 2, 3, ..., N
   }
-
   // Лямбда-функция для многочлена степени N-1
   auto f4 = [coefficients](double x) {
     double result = 0.0;
@@ -57,13 +64,65 @@ int main() {
     return result;
   };
 
-  // Массив функций с поддержкой лямбд
-  std::function<double(double)> functions[6] = {f0, f1, f2, f3, f4, f5};
+  return f4;
+}
+
+function<double(double)> select_function(int n) {
+  cout << "Функции:\n";
+  cout << "1. Многочлен степени 0\n";
+  cout << "2. Многочлен степени 1\n";
+  cout << "3. Многочлен степени 2\n";
+  cout << "4. Многочлен степени 3\n";
+  cout << "5. Многочлен степени N-1\n";
+  cout << "6. sin(x)\n\n";
+
+  int selected_function;
+  cout << "Выберите функцию: ";
+  cin >> selected_function;
+
+  switch (selected_function) {
+  case 1:
+    cout << "Выбрана функция 1\n\n";
+    return f0;
+  case 2:
+    cout << "Выбрана функция 2\n\n";
+    return f1;
+  case 3:
+    cout << "Выбрана функция 3\n\n";
+    return f2;
+  case 4:
+    cout << "Выбрана функция 4\n\n";
+    return f3;
+  case 5:
+    cout << "Выбрана функция 5\n\n";
+    return generate_polynomial(n);
+  default:
+    cout << "Выбрана функция 6\n\n";
+    return f5;
+  }
+}
+
+int main() {
+  // Ввод параметров
+  int N;
+  double a, b;
+  cout << "Введите концы промежутка интегрирования (a, b) через пробел: ";
+  cin >> a >> b;
+  cout << "Введите количество узлов N: ";
+  cin >> N;
+
+  function<double(double)> f = select_function(N);
+
+  // Генерация равномерных узлов
+  vector<double> nodes(N);
+  for (int i = 0; i < N; ++i) {
+    nodes[i] = a + i * (b - a) / (N - 1);
+  }
 
   // Этап 1: Вычисление коэффициентов ИКФ
   // -------------------------------------
   // 1. Вычисление моментов
-  double moments[N];
+  vector<double> moments(N);
 
   gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(1000);
   for (int i = 0; i < N; ++i) {
@@ -74,7 +133,6 @@ int main() {
     gsl_integration_qags(&F, a, b, 0, 1e-7, 1000, workspace, &result, &error);
     moments[i] = result;
   }
-  gsl_integration_workspace_free(workspace);
 
   // 2. Построение матрицы Вандермонда
   gsl_matrix *V = gsl_matrix_alloc(N, N);
@@ -98,54 +156,55 @@ int main() {
   gsl_linalg_LU_solve(V, perm, m, A);
 
   // Вывод весов
-  std::cout << "Веса ИКФ:\n";
+  cout << "Коэффициенты ИКФ:\n";
   for (int i = 0; i < N; ++i) {
-    std::cout << "A" << i << " = " << gsl_vector_get(A, i) << std::endl;
+    struct lkn_params params = {nodes, i};
+    gsl_function F;
+    F.function = &coeff_integrand;
+    F.params = &params;
+    double r, e;
+    gsl_integration_qags(&F, a, b, 0, 1e-7, 1000, workspace, &r, &e);
+
+    cout << "x" << i << " = " << nodes[i] << " : A" << i << " = "
+         << gsl_vector_get(A, i) << endl;
   }
 
   // Этап 2: Вычисление интегралов для всех функций
   // ---------------------------------------------
-  std::cout << "\nРезультаты интегрирования:\n";
+  cout << "\nРезультаты интегрирования:\n";
 
-  const double exact_f5_val = exact_f5(); // Точное значение для f5
-
-  // Вычисление точного значения для f4 (используем моменты)
-  double exact_f4_val = 0.0;
+  double result = 0.0;
   for (int i = 0; i < N; ++i) {
-    exact_f4_val += coefficients[i] * moments[i];
+    result += gsl_vector_get(A, i) * f(nodes[i]);
   }
 
-  for (int func_idx = 0; func_idx < 6; ++func_idx) {
-    double result = 0.0;
-    for (int i = 0; i < N; ++i) {
-      result += gsl_vector_get(A, i) * functions[func_idx](nodes[i]);
-    }
-    std::cout << "f" << func_idx << ": " << result;
+  gsl_function F = {[](double x, void *params) -> double {
+                      auto &f =
+                          *static_cast<function<double(double)> *>(params);
 
-    // Проверка точности для f4 (многочлен степени N-1)
-    if (func_idx == 4) {
-      double abs_error = fabs(result - exact_f4_val);
-      double rel_error = abs_error / exact_f4_val * 100.0;
-      std::cout << " | Абс. погрешность: " << abs_error
-                << " | Отн. погрешность: " << rel_error << "%";
-    }
+                      return f(x) * weight_function(x);
+                    },
+                    &f};
+  double exact_f, error_exact;
+  gsl_integration_qags(&F, a, b, 0, 1e-7, 1000, workspace, &exact_f,
+                       &error_exact);
 
-    // Для f5 вычисляем погрешности
-    if (func_idx == 5) {
-      double abs_error = fabs(result - exact_f5_val);
-      double rel_error = abs_error / exact_f5_val * 100.0;
-      std::cout << " | Абс. погрешность: " << abs_error
-                << " | Отн. погрешность: " << rel_error << "%";
-    }
+  cout << "Ожидаемое значение интеграла w(x)f(x): " << exact_f << endl;
 
-    std::cout << std::endl;
-  }
+  // Для f5 вычисляем погрешности
+  double abs_error = fabs(result - exact_f);
+  double rel_error = abs_error / exact_f * 100.0;
+  cout << "f: " << result << " | Абс. погрешность: " << abs_error
+       << " | Отн. погрешность: " << rel_error << "%";
+
+  cout << endl;
 
   // Освобождение ресурсов
   gsl_matrix_free(V);
   gsl_vector_free(m);
   gsl_vector_free(A);
   gsl_permutation_free(perm);
+  gsl_integration_workspace_free(workspace);
 
   return 0;
 }
