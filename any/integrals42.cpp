@@ -67,38 +67,43 @@ function<double(double)> select_function() {
 }
 
 int main() {
-  // Ввод параметров
-  double a, b;
-  cout << "Введите концы промежутка интегрирования (a, b) через пробел: ";
-  cin >> a >> b;
+  do {
+    // Ввод параметров
+    double a, b;
+    cout << "Введите концы промежутка интегрирования (a, b) через пробел: ";
+    cin >> a >> b;
 
-  function<double(double)> f = select_function();
+    function<double(double)> f = select_function();
 
-  gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(1000);
-  gsl_function F = {[](double x, void *params) -> double {
-                      auto &f =
-                          *static_cast<function<double(double)> *>(params);
+    gsl_integration_workspace *workspace =
+        gsl_integration_workspace_alloc(1000);
+    gsl_function F = {[](double x, void *params) -> double {
+                        auto &f =
+                            *static_cast<function<double(double)> *>(params);
 
-                      return f(x);
-                    },
-                    &f};
-  double exact, error_exact;
-  gsl_integration_qags(&F, a, b, 0, 1e-7, 1000, workspace, &exact,
-                       &error_exact);
-  gsl_integration_workspace_free(workspace);
+                        return f(x);
+                      },
+                      &f};
+    double exact, error_exact;
+    gsl_integration_qags(&F, a, b, 0, 1e-7, 1000, workspace, &exact,
+                         &error_exact);
+    gsl_integration_workspace_free(workspace);
 
-  double I;
+    double I;
 
-  std::cout << "\nТочное значение: " << exact
-            << "\nЛевый прямоугольник: " << (I = left_rectangle(f, a, b))
-            << " (Δ = " << fabs(I - exact) << ")"
-            << "\nПравый прямоугольник: " << (I = right_rectangle(f, a, b))
-            << " (Δ = " << fabs(I - exact) << ")"
-            << "\nСредний прямоугольник: " << (I = mid_rectangle(f, a, b))
-            << " (Δ = " << fabs(I - exact) << ")"
-            << "\nТрапеция: " << (I = trapezoid(f, a, b))
-            << " (Δ = " << fabs(I - exact) << ")"
-            << "\nСимпсон: " << (I = simpson(f, a, b))
-            << " (Δ = " << fabs(I - exact) << ")\n";
+    cout << "\nТочное значение: " << exact
+         << "\nЛевый прямоугольник: " << (I = left_rectangle(f, a, b))
+         << " (Δ = " << fabs(I - exact) << ")"
+         << "\nПравый прямоугольник: " << (I = right_rectangle(f, a, b))
+         << " (Δ = " << fabs(I - exact) << ")"
+         << "\nСредний прямоугольник: " << (I = mid_rectangle(f, a, b))
+         << " (Δ = " << fabs(I - exact) << ")"
+         << "\nТрапеция: " << (I = trapezoid(f, a, b))
+         << " (Δ = " << fabs(I - exact) << ")"
+         << "\nСимпсон: " << (I = simpson(f, a, b))
+         << " (Δ = " << fabs(I - exact) << ")\n";
+    cout << endl;
+  } while (true);
+
   return 0;
 }
