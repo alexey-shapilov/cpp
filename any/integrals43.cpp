@@ -59,12 +59,27 @@ double runge_romberg(double I_h, double I_hl, int l, int r) {
 }
 
 // Функции для вычисления интегралов
-double f0(double x) { return 1.0; }           // Константа
-double f1(double x) { return x; }             // Линейная
-double f2(double x) { return x + pow(x, 2); } // Квадратичная
-double f3(double x) { return x + pow(x, 2) + pow(x, 3); } // Кубическая
-double f4(double x) { return sin(x); } // Неполиномиальная
+double f0(double x) { return 1.0; } // Константа
+double f0_primitive(double x) { return x; }
 
+double f1(double x) { return x; } // Линейная
+double f1_primitive(double x) { return pow(x, 2) / 2; }
+
+double f2(double x) { return x + pow(x, 2); } // Квадратичная
+double f2_primitive(double x) { return pow(x, 2) / 2 + pow(x, 3) / 3; }
+
+double f3(double x) { return x + pow(x, 2) + pow(x, 3); } // Кубическая
+double f3_primitive(double x) {
+  return pow(x, 2) / 2 + pow(x, 3) / 3 + pow(x, 4) / 4;
+}
+
+double f4(double x) { return sin(x); } // Неполиномиальная
+double f4_primitive(double x) { return -cos(x); }
+
+function<double(double)> primitives[5] = {
+    f0_primitive, f1_primitive, f2_primitive, f3_primitive, f4_primitive};
+
+int selected_function;
 function<double(double)> select_function() {
   cout << "Функции:\n";
   cout << "1. Многочлен степени 0\n";
@@ -73,7 +88,6 @@ function<double(double)> select_function() {
   cout << "4. Многочлен степени 3\n";
   cout << "5. sin(x)\n\n";
 
-  int selected_function;
   cout << "Выберите функцию: ";
   cin >> selected_function;
 
@@ -122,19 +136,8 @@ int main() {
 
     function<double(double)> f = select_function();
 
-    gsl_integration_workspace *workspace =
-        gsl_integration_workspace_alloc(1000);
-    gsl_function F = {[](double x, void *params) -> double {
-                        auto &f =
-                            *static_cast<function<double(double)> *>(params);
-
-                        return f(x);
-                      },
-                      &f};
-    double exact, error_exact;
-    gsl_integration_qags(&F, a, b, 0, 1e-7, 1000, workspace, &exact,
-                         &error_exact);
-    gsl_integration_workspace_free(workspace);
+    double exact = primitives[selected_function - 1](b) -
+                   primitives[selected_function - 1](a);
 
     double *I = calculate_integrals(f, a, b, m);
 
