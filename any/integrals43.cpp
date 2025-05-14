@@ -1,8 +1,5 @@
 #include <cmath>
 #include <functional>
-#include <gsl/gsl_integration.h>
-#include <gsl/gsl_linalg.h>
-#include <gsl/gsl_math.h>
 #include <iomanip>
 #include <iostream>
 #include <ostream>

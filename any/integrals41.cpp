@@ -3,6 +3,7 @@
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_math.h>
+#include <iomanip>
 #include <iostream>
 #include <ostream>
 #include <vector>
@@ -103,6 +104,8 @@ function<double(double)> select_function(int n) {
 }
 
 int main() {
+  setlocale(LC_ALL, "Russian");
+  cout << fixed << setprecision(12);
   // Ввод параметров
   int N;
   double a, b;
@@ -111,13 +114,17 @@ int main() {
   cout << "Введите количество узлов N: ";
   cin >> N;
 
-  function<double(double)> f = select_function(N);
-
-  // Генерация равномерных узлов
   vector<double> nodes(N);
+  cout << "Введите узлы: ";
   for (int i = 0; i < N; ++i) {
-    nodes[i] = a + i * (b - a) / (N - 1);
+    cin >> nodes[i];
   }
+  // Генерация равномерных узлов
+  // for (int i = 0; i < N; ++i) {
+  //  nodes[i] = a + i * (b - a) / (N - 1);
+  //}
+
+  function<double(double)> f = select_function(N);
 
   // Этап 1: Вычисление коэффициентов ИКФ
   // -------------------------------------
@@ -166,7 +173,7 @@ int main() {
     gsl_integration_qags(&F, a, b, 0, 1e-7, 1000, workspace, &r, &e);
 
     cout << "x" << i << " = " << nodes[i] << " : A" << i << " = "
-         << gsl_vector_get(A, i) << endl;
+         << gsl_vector_get(A, i) << " ~ " << r << endl;
   }
 
   // Этап 2: Вычисление интегралов для всех функций
@@ -191,7 +198,6 @@ int main() {
 
   cout << "Ожидаемое значение интеграла w(x)f(x): " << exact_f << endl;
 
-  // Для f5 вычисляем погрешности
   double abs_error = fabs(result - exact_f);
   double rel_error = abs_error / exact_f * 100.0;
   cout << "f: " << result << " | Абс. погрешность: " << abs_error
