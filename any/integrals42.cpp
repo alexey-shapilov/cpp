@@ -111,10 +111,12 @@ int main() {
   SelectedFunction f;
   f.f = select_function();
 
-  double exact = f.exact(interval);
+  double exact;
 
   int choice;
   do {
+    exact = f.exact(interval);
+
     double I;
 
     cout << "\nТочное значение: " << exact
@@ -137,7 +139,6 @@ int main() {
 
     if (choice == 1) {
       f.f = select_function();
-      exact = f.exact(interval);
     } else if (choice == 2) {
       interval = input_iterval();
     }

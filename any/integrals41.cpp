@@ -10,6 +10,17 @@
 
 using namespace std;
 
+struct Interval {
+  double a;
+  double b;
+};
+
+struct Params {
+  Interval interval;
+  int n;
+  vector<double> nodes;
+};
+
 // Весовая функция w(x)
 double weight_function(double x) { return exp(x); }
 
@@ -68,6 +79,7 @@ function<double(double)> generate_polynomial(int n) {
   return f4;
 }
 
+int selected_function;
 function<double(double)> select_function(int n) {
   cout << "Функции:\n";
   cout << "1. Многочлен степени 0\n";
@@ -77,7 +89,6 @@ function<double(double)> select_function(int n) {
   cout << "5. Многочлен степени N-1\n";
   cout << "6. sin(x)\n\n";
 
-  int selected_function;
   cout << "Выберите функцию: ";
   cin >> selected_function;
 
@@ -103,88 +114,113 @@ function<double(double)> select_function(int n) {
   }
 }
 
-int main() {
-  setlocale(LC_ALL, "Russian");
-  cout << fixed << setprecision(12);
-  // Ввод параметров
-  int N;
-  double a, b;
-  cout << "Введите концы промежутка интегрирования (a, b) через пробел: ";
-  cin >> a >> b;
-  cout << "Введите количество узлов N: ";
-  cin >> N;
+Params input_params() {
+  Interval interval;
+  Params params;
 
-  vector<double> nodes(N);
+  cout << "Введите концы промежутка интегрирования (a, b) через пробел: ";
+  cin >> interval.a >> interval.b;
+
+  cout << "Введите количество узлов N: ";
+  cin >> params.n;
+
+  vector<double> nodes(params.n);
   cout << "Введите узлы: ";
-  for (int i = 0; i < N; ++i) {
+  for (int i = 0; i < params.n; ++i) {
     cin >> nodes[i];
   }
   // Генерация равномерных узлов
-  // for (int i = 0; i < N; ++i) {
-  //  nodes[i] = a + i * (b - a) / (N - 1);
+  // for (int i = 0; i < params.n; ++i) {
+  //  nodes[i] = interval.a + i * (interval.b - interval.a) / (params.n - 1);
   //}
 
-  function<double(double)> f = select_function(N);
+  params.interval = interval;
+  params.nodes = nodes;
 
-  // Этап 1: Вычисление коэффициентов ИКФ
-  // -------------------------------------
-  // 1. Вычисление моментов
-  vector<double> moments(N);
+  return params;
+}
+
+gsl_vector *calculate_coefficientsi_vandermond(Interval interval,
+                                               vector<double> nodes) {
+  int n = nodes.size();
+
+  // Вычисление моментов
+  vector<double> moments(n);
 
   gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(1000);
-  for (int i = 0; i < N; ++i) {
+  for (int i = 0; i < n; ++i) {
     gsl_function F;
     F.function = &moment_integrand;
     F.params = &i;
     double result, error;
-    gsl_integration_qags(&F, a, b, 0, 1e-7, 1000, workspace, &result, &error);
+    gsl_integration_qags(&F, interval.a, interval.b, 0, 1e-7, 1000, workspace,
+                         &result, &error);
     moments[i] = result;
   }
 
-  // 2. Построение матрицы Вандермонда
-  gsl_matrix *V = gsl_matrix_alloc(N, N);
-  for (int i = 0; i < N; ++i) {
-    for (int j = 0; j < N; ++j) {
+  gsl_matrix *V = gsl_matrix_alloc(n, n);
+  for (int i = 0; i < n; ++i) {
+    for (int j = 0; j < n; ++j) {
       gsl_matrix_set(V, i, j, pow(nodes[j], i)); // V[i][j] = nodes[j]^i
     }
   }
 
-  // 3. Решение системы V^T * A = moments
-  gsl_vector *m = gsl_vector_alloc(N);
-  gsl_vector *A = gsl_vector_alloc(N);
-  for (int i = 0; i < N; ++i) {
+  // Решение системы V^T * A = moments
+  gsl_vector *m = gsl_vector_alloc(n);
+  gsl_vector *A = gsl_vector_alloc(n);
+  for (int i = 0; i < n; ++i) {
     gsl_vector_set(m, i, moments[i]);
   }
 
   // LU-разложение
-  gsl_permutation *perm = gsl_permutation_alloc(N);
+  gsl_permutation *perm = gsl_permutation_alloc(n);
   int signum;
   gsl_linalg_LU_decomp(V, perm, &signum);
   gsl_linalg_LU_solve(V, perm, m, A);
 
-  // Вывод весов
-  cout << "Коэффициенты ИКФ:\n";
-  for (int i = 0; i < N; ++i) {
-    struct lkn_params params = {nodes, i};
+  gsl_matrix_free(V);
+  gsl_vector_free(m);
+  gsl_permutation_free(perm);
+  gsl_integration_workspace_free(workspace);
+
+  return A;
+}
+
+gsl_vector *calculate_coefficientsi_integrand(Interval interval,
+                                              vector<double> nodes) {
+  gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(1000);
+  int n = nodes.size();
+  gsl_vector *A = gsl_vector_alloc(n);
+
+  for (int i = 0; i < n; ++i) {
+    struct lkn_params lknParams = {nodes, i};
     gsl_function F;
     F.function = &coeff_integrand;
-    F.params = &params;
+    F.params = &lknParams;
     double r, e;
-    gsl_integration_qags(&F, a, b, 0, 1e-7, 1000, workspace, &r, &e);
+    gsl_integration_qags(&F, interval.a, interval.b, 0, 1e-7, 1000, workspace,
+                         &r, &e);
 
-    cout << "x" << i << " = " << nodes[i] << " : A" << i << " = "
-         << gsl_vector_get(A, i) << " ~ " << r << endl;
+    gsl_vector_set(A, i, r);
   }
+  gsl_integration_workspace_free(workspace);
 
-  // Этап 2: Вычисление интегралов для всех функций
-  // ---------------------------------------------
-  cout << "\nРезультаты интегрирования:\n";
+  return A;
+}
 
+double integrand(function<double(double)> f, gsl_vector *A,
+                 vector<double> nodes) {
+  int n = nodes.size();
   double result = 0.0;
-  for (int i = 0; i < N; ++i) {
+  for (int i = 0; i < n; ++i) {
     result += gsl_vector_get(A, i) * f(nodes[i]);
   }
 
+  return result;
+}
+
+double exact_integrand(function<double(double)> f, Interval interval) {
+  gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(1000);
   gsl_function F = {[](double x, void *params) -> double {
                       auto &f =
                           *static_cast<function<double(double)> *>(params);
@@ -192,25 +228,72 @@ int main() {
                       return f(x) * weight_function(x);
                     },
                     &f};
-  double exact_f, error_exact;
-  gsl_integration_qags(&F, a, b, 0, 1e-7, 1000, workspace, &exact_f,
-                       &error_exact);
-
-  cout << "Ожидаемое значение интеграла w(x)f(x): " << exact_f << endl;
-
-  double abs_error = fabs(result - exact_f);
-  double rel_error = abs_error / exact_f * 100.0;
-  cout << "f: " << result << " | Абс. погрешность: " << abs_error
-       << " | Отн. погрешность: " << rel_error << "%";
-
-  cout << endl;
-
-  // Освобождение ресурсов
-  gsl_matrix_free(V);
-  gsl_vector_free(m);
-  gsl_vector_free(A);
-  gsl_permutation_free(perm);
+  double exact, error_exact;
+  gsl_integration_qags(&F, interval.a, interval.b, 0, 1e-7, 1000, workspace,
+                       &exact, &error_exact);
   gsl_integration_workspace_free(workspace);
+
+  return exact;
+}
+
+int main() {
+  setlocale(LC_ALL, "Russian");
+  cout << fixed << setprecision(12);
+
+  Params params = input_params();
+
+  gsl_vector *A =
+      calculate_coefficientsi_vandermond(params.interval, params.nodes);
+  gsl_vector *A_integrand =
+      calculate_coefficientsi_integrand(params.interval, params.nodes);
+
+  function<double(double)> f = select_function(params.n);
+
+  int choice;
+  do {
+    // Вывод весов
+    cout << "Коэффициенты ИКФ:\n";
+    for (int i = 0; i < params.n; ++i) {
+      cout << "x" << i << " = " << params.nodes[i] << " : A" << i << " = "
+           << gsl_vector_get(A, i) << " ~ " << gsl_vector_get(A_integrand, i)
+           << endl;
+    }
+
+    cout << "\nРезультаты интегрирования:\n";
+
+    double result = integrand(f, A, params.nodes);
+    double exact_f = exact_integrand(f, params.interval);
+
+    cout << "Ожидаемое значение интеграла w(x)f(x): " << exact_f << endl;
+
+    double abs_error = fabs(result - exact_f);
+    double rel_error = abs_error / exact_f * 100.0;
+    cout << "f: " << result << " | Абс. погрешность: " << abs_error
+         << " | Отн. погрешность: " << rel_error << "%";
+
+    cout << endl << endl;
+
+    cout << "1. Выбрать новую функцию\n"
+         << "2. Ввести новые значения промежутка интегрирования\n"
+         << "0. Выход\n";
+    cin >> choice;
+
+    if (choice == 1) {
+      f = select_function(params.n);
+    } else if (choice == 2) {
+      // Освобождение ресурсов
+      gsl_vector_free(A);
+      gsl_vector_free(A_integrand);
+
+      params = input_params();
+      if (selected_function == 5) {
+        f = generate_polynomial(params.n);
+      }
+      A = calculate_coefficientsi_vandermond(params.interval, params.nodes);
+      A_integrand =
+          calculate_coefficientsi_integrand(params.interval, params.nodes);
+    }
+  } while (choice != 0);
 
   return 0;
 }
