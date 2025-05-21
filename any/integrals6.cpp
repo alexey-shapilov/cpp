@@ -93,6 +93,7 @@ gsl_vector *calculate_coefficients(Interval interval, double n) {
   vector<double> moments(N);
 
   gsl_integration_workspace *workspace = gsl_integration_workspace_alloc(1000);
+  cout << "Моменты:" << endl;
   for (int i = 0; i < N; ++i) {
     gsl_function F;
     F.function = &moment_integrand;
@@ -101,7 +102,9 @@ gsl_vector *calculate_coefficients(Interval interval, double n) {
     gsl_integration_qags(&F, interval.a, interval.b, 0, 1e-7, 1000, workspace,
                          &result, &error);
     moments[i] = result;
+    cout << "m[" << i << "] = " << moments[i] << endl;
   }
+  cout << endl;
 
   gsl_matrix *V = gsl_matrix_alloc(n, n);
   for (int i = 0; i < n; ++i) {
@@ -207,8 +210,8 @@ vector<double> find_all_roots(gsl_vector *coeffs, double left, double right,
                               int n, double eps = 1e-6) {
   vector<double> roots;
   double step = (right - left) / n;
-  if (step > 0.1) {
-    step = 0.1;
+  if (step > 0.005) {
+    step = 0.005;
   }
 
   // Рекурсивная проверка интервалов
@@ -277,14 +280,14 @@ int main() {
 
   Params params = input_params();
 
+  function<double(double)> f = select_function(2 * params.n - 1);
+
   gsl_vector *A_orthogonal = calculate_coefficients(params.interval, params.n);
   params.nodes = find_all_roots(A_orthogonal, params.interval.a,
                                 params.interval.b, params.n);
 
   gsl_vector *A =
       calculate_coefficients_vandermond(params.interval, params.nodes);
-
-  function<double(double)> f = select_function(2 * params.n - 1);
 
   int choice;
   do {
